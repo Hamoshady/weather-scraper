@@ -1,77 +1,68 @@
-import re  # مكتبة regular expressions للبحث داخل النصوص باستخدام أنماط معينة
+import re
+from selenium import webdriver
+from selenium.webdriver.chrome.options import Options
+from bs4 import BeautifulSoup
+
 
 def get_forecast_data():
-    # ✅ استيراد المكتبات المطلوبة داخل الدالة (بتشتغل وقت التنفيذ فقط)
-    from selenium import webdriver
-    from selenium.webdriver.chrome.options import Options
-    from bs4 import BeautifulSoup
+    """Fetch and display weather forecast data from world-weather.info"""
 
-    # ✅ إعداد خيارات تشغيل متصفح Chrome
+    # Configure Chrome browser options
     options = Options()
-    options.add_argument('--headless')       # تشغيل المتصفح في الخلفية بدون واجهة
-    options.add_argument('--disable-gpu')    # تعطيل استخدام كارت الشاشة (لتقليل الحمل)
-    options.add_argument('--no-sandbox')     # منع مشاكل الصلاحيات في بعض الأنظمة
-    options.add_argument('--log-level=3')    # تقليل الرسائل التحذيرية في الكونسول
+    options.add_argument('--headless')
+    options.add_argument('--disable-gpu')
+    options.add_argument('--no-sandbox')
+    options.add_argument('--log-level=3')
 
-    # ✅ تعطيل تحميل الصور والإشعارات والميديا لتسريع تحميل الصفحة
+    # Disable images and media to speed up loading
     prefs = {
         "profile.default_content_setting_values": {
-            "images": 2,          # تعطيل الصور
-            "plugins": 2,         # تعطيل الإضافات
-            "popups": 2,          # تعطيل النوافذ المنبثقة
-            "notifications": 2,   # تعطيل الإشعارات
-            "media_stream": 2,    # تعطيل الميديا (كاميرا/مايك)
+            "images": 2,
+            "plugins": 2,
+            "popups": 2,
+            "notifications": 2,
+            "media_stream": 2,
         }
     }
     options.add_experimental_option("prefs", prefs)
 
-    # ✅ إنشاء متصفح Chrome بالإعدادات السابقة
+    # Initialize Chrome WebDriver
     driver = webdriver.Chrome(options=options)
 
-    # ✅ زيارة الموقع حتى يتم تسجيل الدومين (ضروري قبل إضافة الكوكي)
+    # Visit website to register domain before adding cookie
     driver.get("https://world-weather.info/")
 
-    # ✅ إضافة كوكي لتفعيل درجة الحرارة بوحدة "السيلسيوس"
+    # Add cookie to enable Celsius temperature display
     driver.add_cookie({"name": "celsius", "value": "1"})
-
-    # ✅ تحديث الصفحة لتطبيق الكوكي فعليًا
     driver.refresh()
 
-    # ✅ أخذ نسخة من كود HTML بعد تفعيل الكوكي
+    # Parse page source with BeautifulSoup
     html = driver.page_source
-
-    # ✅ تحليل الصفحة باستخدام مكتبة BeautifulSoup
     soup = BeautifulSoup(html, "html.parser")
 
-    # ✅ إيجاد القسم اللي يحتوي على بيانات المدن والطقس
+    # Locate the main section that contains forecast data
     resorts = soup.find("div", id="resorts")
 
-    # ✅ استخراج أسماء المدن باستخدام تعبير منتظم (Regular Expression)
+    # Extract city names using regular expressions
     re_cities = r'">([\w\s]+)</a><span>'
     cities = re.findall(re_cities, str(resorts))
 
-    # ✅ استخراج درجات الحرارة من الصفحة
+    # Extract temperatures
     re_temps = r'<span>(\+\d+|-\d+)<span'
-    temps = re.findall(re_temps, str(resorts))
+    temps = [int(temp) for temp in re.findall(re_temps, str(resorts))]
 
-    # ✅ تحويل القيم النصية للأرقام (int)
-    temps = [int(temp) for temp in temps]
-
-    # ✅ البحث عن كل العناصر اللي تحتوي على الحالة الجوية (Tooltip)
+    # Extract weather conditions (tooltip titles)
     conditions_tags = resorts.find_all('span', class_='tooltip')
+    conditions = [tag.get('title') for tag in conditions_tags]
 
-    # ✅ استخراج وصف الحالة الجوية من خاصية "title"
-    conditions = [condition.get('title') for condition in conditions_tags]
+    # Combine city, temperature, and condition into one list
+    data = list(zip(cities, temps, conditions))
 
-    # ✅ دمج المدن + درجات الحرارة + الحالات الجوية في قائمة واحدة
-    data = zip(cities, temps, conditions)
+    # Print the final result
+    print(data)
 
-    # ✅ عرض النتائج في شكل قائمة من التابعات (tuples)
-    print(list(data))
-
-    # ✅ إغلاق المتصفح بعد الانتهاء
+    # Close browser
     driver.quit()
 
 
-# ✅ تشغيل الدالة
 get_forecast_data()
